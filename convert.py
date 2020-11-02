@@ -1,16 +1,19 @@
+#copyright (c) 2020 
+# *
+# * This file is part of pywpsrpc.
+# *
+# * This file is distributed under the MIT License.
+# * See the LICENSE file for details.
+# *
+#*
+
 import os
 import sys
-import argparse
+import socketserver
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
-from fastapi import FastAPI
-
-from starlette.requests import Request
-from fastapi import FastAPI, Form, File, UploadFile
-from starlette.templating import Jinja2Templates
-from starlette.responses import FileResponse
-
+from apscheduler.schedulers.background import BackgroundScheduler
 
 formats = {
     "doc": wpsapi.wdFormatDocument,
@@ -21,8 +24,20 @@ formats = {
     "xml": wpsapi.wdFormatXML,
 }
 
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+
+def worker():
+    path = "temp_file/out"
+    if os.path.exists(path):
+        for f in os.listdir(path):
+            os.remove(path + "/" + i)
+    path = "tem_file/"
+    if os.path.exists(path):
+        for f in os.listdir(path):
+            os.remove(path + "/" + i)
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 00,minute = 00)
+scheduler.start() 
 
 class ConvertException(Exception):
 
@@ -36,60 +51,32 @@ Details: {}
 ErrCode: {}
 """.format(self.text, hex(self.hr & 0xFFFFFFFF))
 
-def convert_to(path, format, abort_on_fails=False):
-    try:
-        new_path = convert_to(path, "pdf", False)
-        hr, rpc = createWpsRpcInstance()
-        if hr != S_OK:
-        raise ConvertException("Can't create the rpc instance", hr)
+hr, rpc = createWpsRpcInstance()
+if hr != S_OK:
+    raise ConvertException("Can't create the rpc instance", hr)
+hr, app = rpc.getWpsApplication()
+if hr != S_OK:
+    raise ConvertException("Can't get the application", hr)
+app.Visible = False
+docs = app.Documents
+    
+class Myserver(socketserver.BaseRequestHandler):
+    def handle(self):
+        path = str(self.request.recv(1024), "utf-8").strip()
+        new_path = self.convert_to(path, "pdf", False)
+        self.request.sendall(bytes(new_path, "utf-8"))
+    def convert_to(self, path, format, abort_on_fails=False):
+        hr, doc = docs.Open(path, ReadOnly=True)
+        out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
+        os.makedirs(out_dir, exist_ok=True)
+        new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + "." + format
+        doc.SaveAs2(new_path, FileFormat=formats[format])
+        doc.Close(wpsapi.wdDoNotSaveChanges)
+        return new_path
 
-    hr, app = rpc.getWpsApplication()
-    if hr != S_OK:
-        raise ConvertException("Can't get the application", hr)
-
-    # we don't need the gui
-    app.Visible = False
-
-    docs = app.Documents
-
-    def _handle_result(hr):
-        if abort_on_fails and hr != S_OK:
-            raise ConvertException("convert_file failed", hr)
-
-    hr, doc = docs.Open(path, ReadOnly=True)
-    if hr != S_OK:
-        return hr
-
-    out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
-    os.makedirs(out_dir, exist_ok=True)
-
-    # you have to handle if the new_file already exists
-    new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + "." + format
-    doc.SaveAs2(new_path, FileFormat=formats[format])
-
-    # always close the doc
-    doc.Close(wpsapi.wdDoNotSaveChanges)
-    _handle_result(hr)
-
-    app.Quit()
-    return new_path
-
-@app.get("/")
-async def main(request: Request):
-    return templates.TemplateResponse('post.html', {'request': request})
-
-@app.post('/convert')
-async def convert(
-                        request: Request,
-                        file: UploadFile   = File(...)
-                      ):
-    path = os.path.join("temp_file",file.filename)
-    os.makedirs("temp_file/", exist_ok=True)
-    contents = await file.read()
-    with open(path,'wb') as f:
-        f.write(contents)
-    try:
-        new_path = convert_to(path, "pdf", False)
-        return  FileResponse(new_path, filename=file.filename.split(".")[0]+".pdf")
-    except ConvertException as e:
-        print(e)
+ 
+if __name__ == "__main__":
+    host, port = "127.0.0.1", 9999
+    socketserver.TCPServer.allow_reuse_address = True
+    server = socketserver.ThreadingTCPServer((host, port),Myserver)
+    server.serve_forever()
