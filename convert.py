@@ -1,11 +1,11 @@
-#copyright (c) 2020 
-# *
-# * This file is part of pywpsrpc.
-# *
-# * This file is distributed under the MIT License.
-# * See the LICENSE file for details.
-# *
-#*
+# * Title: convert<br>
+# * Description: convert<br>
+# * Copyright: Copyright (c) 2019<br>
+# * Company: 华宇（大连）信息服务有限公司<br>
+# * 
+# * @author wangbing
+# * @date 2020-10-10
+# * @version 1.0
 
 import os
 import sys
@@ -60,11 +60,12 @@ if hr != S_OK:
 app.Visible = False
 docs = app.Documents
     
-class Myserver(socketserver.BaseRequestHandler):
+class Convertserver(socketserver.BaseRequestHandler):
     def handle(self):
         path = str(self.request.recv(1024), "utf-8").strip()
         new_path = self.convert_to(path, "pdf", False)
         self.request.sendall(bytes(new_path, "utf-8"))
+        
     def convert_to(self, path, format, abort_on_fails=False):
         hr, doc = docs.Open(path, ReadOnly=True)
         out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
@@ -73,10 +74,9 @@ class Myserver(socketserver.BaseRequestHandler):
         doc.SaveAs2(new_path, FileFormat=formats[format])
         doc.Close(wpsapi.wdDoNotSaveChanges)
         return new_path
-
  
 if __name__ == "__main__":
     host, port = "127.0.0.1", 9999
     socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.ThreadingTCPServer((host, port),Myserver)
+    server = socketserver.ThreadingTCPServer((host, port),Convertserver)
     server.serve_forever()

@@ -1,11 +1,11 @@
-#copyright (c) 2020 
-# *
-# * This file is part of pywpsrpc.
-# *
-# * This file is distributed under the MIT License.
-# * See the LICENSE file for details.
-# *
-#*
+# * Title: server<br>
+# * Description: server<br>
+# * Copyright: Copyright (c) 2019<br>
+# * Company: 华宇（大连）信息服务有限公司<br>
+# * 
+# * @author wangbing
+# * @date 2020-10-10
+# * @version 1.0
 
 import os
 import sys
