@@ -29,11 +29,11 @@ def worker():
     path = "temp_file/out"
     if os.path.exists(path):
         for f in os.listdir(path):
-            os.remove(path + "/" + i)
+            os.remove(path + "/" + f)
     path = "tem_file/"
     if os.path.exists(path):
         for f in os.listdir(path):
-            os.remove(path + "/" + i)
+            os.remove(path + "/" + f)
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 00,minute = 00)
