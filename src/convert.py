@@ -1,6 +1,6 @@
 # * Title: convert<br>
 # * Description: convert<br>
-# * Copyright: Copyright (c) 2019<br>
+# * Copyright: Copyright (c) 2020<br>
 # * Company: 华宇（大连）信息服务有限公司<br>
 # * 
 # * @author wangbing
@@ -81,12 +81,12 @@ async def convert(
     with open(path,'wb') as f:
         f.write(contents)
     try:
-    	  hr, doc = docs.Open(path, ReadOnly=True)
+        hr, doc = docs.Open(path, ReadOnly=True)
         if hr != S_OK:
             return hr
         out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
         os.makedirs(out_dir, exist_ok=True)
-        new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + "." + format
+        new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + ".pdf"
         doc.SaveAs2(new_path, FileFormat=formats["pdf"])
         doc.Close(wpsapi.wdDoNotSaveChanges)   
         return  FileResponse(new_path, filename=file.filename.split(".")[0]+".pdf")
