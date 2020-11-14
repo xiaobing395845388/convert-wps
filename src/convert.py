@@ -9,10 +9,14 @@
 
 import os
 import sys
-import socketserver
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
+
+from starlette.requests import Request
+from fastapi import FastAPI, Form, File, UploadFile
+from starlette.templating import Jinja2Templates
+from starlette.responses import FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 formats = {
@@ -24,6 +28,8 @@ formats = {
     "xml": wpsapi.wdFormatXML,
 }
 
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
 def worker():
     path = "temp_file/out"
@@ -54,29 +60,35 @@ ErrCode: {}
 hr, rpc = createWpsRpcInstance()
 if hr != S_OK:
     raise ConvertException("Can't create the rpc instance", hr)
-hr, app = rpc.getWpsApplication()
+hr, wps = rpc.getWpsApplication()
 if hr != S_OK:
     raise ConvertException("Can't get the application", hr)
-app.Visible = False
-docs = app.Documents
-    
-class Convertserver(socketserver.BaseRequestHandler):
-    def handle(self):
-        path = str(self.request.recv(1024), "utf-8").strip()
-        new_path = self.convert_to(path, "pdf", False)
-        self.request.sendall(bytes(new_path, "utf-8"))
-        
-    def convert_to(self, path, format, abort_on_fails=False):
-        hr, doc = docs.Open(path, ReadOnly=True)
+wps.Visible = False
+docs = wps.Documents
+
+@app.get("/")
+async def test(request: Request):
+    return templates.TemplateResponse('post.html', {'request': request})
+
+@app.post('/api/v1/convert/wps/pdf')
+async def convert(
+                        request: Request,
+                        file: UploadFile   = File(...)
+                      ):    
+    path = os.path.join("temp_file",file.filename)
+    os.makedirs("temp_file/", exist_ok=True)
+    contents = await file.read()
+    with open(path,'wb') as f:
+        f.write(contents)
+    try:
+    	  hr, doc = docs.Open(path, ReadOnly=True)
+        if hr != S_OK:
+            return hr
         out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
         os.makedirs(out_dir, exist_ok=True)
         new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + "." + format
-        doc.SaveAs2(new_path, FileFormat=formats[format])
-        doc.Close(wpsapi.wdDoNotSaveChanges)
-        return new_path
- 
-if __name__ == "__main__":
-    host, port = "127.0.0.1", 9999
-    socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.ThreadingTCPServer((host, port),Convertserver)
-    server.serve_forever()
+        doc.SaveAs2(new_path, FileFormat=formats["pdf"])
+        doc.Close(wpsapi.wdDoNotSaveChanges)   
+        return  FileResponse(new_path, filename=file.filename.split(".")[0]+".pdf")
+    except ConvertException as e:
+        print(e)
