@@ -1,6 +1,6 @@
 # * Title: convert<br>
 # * Description: convert<br>
-# * Copyright: Copyright (c) 2020<br>
+# * Copyright: Copyright (c) 2019<br>
 # * Company: 华宇（大连）信息服务有限公司<br>
 # * 
 # * @author wangbing
@@ -9,6 +9,7 @@
 
 import os
 import sys
+import uuid
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
@@ -74,8 +75,9 @@ async def test(request: Request):
 async def convert(
                         request: Request,
                         file: UploadFile   = File(...)
-                      ):    
-    path = os.path.join("temp_file",file.filename)
+                      ): 
+    file_name = str(uuid.uuid1())   
+    path = os.path.join("temp_file",file_name)
     os.makedirs("temp_file/", exist_ok=True)
     contents = await file.read()
     with open(path,'wb') as f:
@@ -83,12 +85,12 @@ async def convert(
     try:
         hr, doc = docs.Open(path, ReadOnly=True)
         if hr != S_OK:
-            return hr
-        out_dir = os.path.dirname(os.path.realpath(path)) + "/out"
+            raise ConvertException("Can't open file in path", hr)
+        out_dir = "temp_file/out"
         os.makedirs(out_dir, exist_ok=True)
-        new_path = out_dir + "/" + os.path.splitext(os.path.basename(path))[0] + ".pdf"
+        new_path = out_dir + "/" + file_name  + ".pdf"
         doc.SaveAs2(new_path, FileFormat=formats["pdf"])
         doc.Close(wpsapi.wdDoNotSaveChanges)   
-        return  FileResponse(new_path, filename=file.filename.split(".")[0]+".pdf")
+        return  FileResponse(new_path, filename = file_name  + ".pdf")
     except ConvertException as e:
         print(e)
