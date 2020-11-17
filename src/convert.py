@@ -16,6 +16,7 @@ from pywpsrpc.common import (S_OK, QtApp)
 
 from starlette.requests import Request
 from fastapi import FastAPI, Form, File, UploadFile
+from fastapi.responses import JSONResponse
 from starlette.templating import Jinja2Templates
 from starlette.responses import FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -36,14 +37,23 @@ def worker():
     path = "temp_file/out"
     if os.path.exists(path):
         for f in os.listdir(path):
-            os.remove(path + "/" + f)
-    path = "tem_file/"
+            try:
+                os.remove(path + "/" + f)
+            except IOError:
+                print("Error: 没有找到文件或读取文件失败" + path + "/" + f)
+    path = "temp_file"
     if os.path.exists(path):
         for f in os.listdir(path):
-            os.remove(path + "/" + f)
+            file_path = path + "/" + f
+            if os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                except IOError:
+                    print("Error: 没有找到文件或读取文件失败" + file_path)
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 00,minute = 00)
+scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 0,minute = 0)
+scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 13,minute = 13)
 scheduler.start() 
 
 class ConvertException(Exception):
@@ -58,14 +68,17 @@ Details: {}
 ErrCode: {}
 """.format(self.text, hex(self.hr & 0xFFFFFFFF))
 
-hr, rpc = createWpsRpcInstance()
-if hr != S_OK:
-    raise ConvertException("Can't create the rpc instance", hr)
-hr, wps = rpc.getWpsApplication()
-if hr != S_OK:
-    raise ConvertException("Can't get the application", hr)
-wps.Visible = False
-docs = wps.Documents
+def init():
+    hr, rpc = createWpsRpcInstance()
+    if hr != S_OK:
+        raise ConvertException("Can't create the rpc instance", hr)
+    hr, wps = rpc.getWpsApplication()
+    if hr != S_OK:
+        raise ConvertException("Can't get the application", hr)
+    wps.Visible = False
+    return wps.Documents
+    
+docs = init()
 
 @app.get("/")
 async def test(request: Request):
@@ -75,18 +88,20 @@ async def test(request: Request):
 async def convert(
                         request: Request,
                         file: UploadFile   = File(...)
-                      ): 
+                      ):
     file_name = str(uuid.uuid1())   
-    path = os.path.join("temp_file",file_name)
-    os.makedirs("temp_file/", exist_ok=True)
+    base_path = "temp_file" 
+    path = os.path.join(base_path ,file_name)
+    os.makedirs(base_path, exist_ok=True)
     contents = await file.read()
     with open(path,'wb') as f:
         f.write(contents)
+    global docs
     try:
         hr, doc = docs.Open(path, ReadOnly=True)
         if hr != S_OK:
             raise ConvertException("Can't open file in path", hr)
-        out_dir = "temp_file/out"
+        out_dir = base_path + "/out"
         os.makedirs(out_dir, exist_ok=True)
         new_path = out_dir + "/" + file_name  + ".pdf"
         doc.SaveAs2(new_path, FileFormat=formats["pdf"])
@@ -94,3 +109,6 @@ async def convert(
         return  FileResponse(new_path, filename = file_name  + ".pdf")
     except ConvertException as e:
         print(e)
+        docs = init()
+        return JSONResponse(status_code=500, content = str(e))
+    
