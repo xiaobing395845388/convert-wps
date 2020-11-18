@@ -69,7 +69,7 @@ ErrCode: {}
 """.format(self.text, hex(self.hr & 0xFFFFFFFF))
 
 def init():
-    print("开始初始化wps...")
+    os.system("./clean.sh")
     hr, rpc = createWpsRpcInstance()
     if hr != S_OK:
         raise ConvertException("Can't create the rpc instance", hr)
@@ -77,7 +77,6 @@ def init():
     if hr != S_OK:
         raise ConvertException("Can't get the application", hr)
     wps.Visible = False
-    print("完成初始化wps...")
     return wps.Documents
     
 docs = init()
@@ -102,10 +101,10 @@ async def convert(
     try:
         hr, doc = docs.Open(path, ReadOnly=True)
         if hr != S_OK:
-        	  docs = init()
-        	  hr, doc = docs.Open(path, ReadOnly=True)
-        	  if hr != S_OK:
-        	  	  raise ConvertException("Can't get the application", hr)
+            docs = init()
+            hr, doc = docs.Open(path, ReadOnly=True)
+            if hr != S_OK:
+                raise ConvertException("Can't open file in path", hr)
         out_dir = base_path + "/out"
         os.makedirs(out_dir, exist_ok=True)
         new_path = out_dir + "/" + file_name  + ".pdf"
@@ -114,6 +113,4 @@ async def convert(
         return  FileResponse(new_path, filename = file_name  + ".pdf")
     except ConvertException as e:
         print(e)
-        docs = init()
         return JSONResponse(status_code=500, content = str(e))
-    
