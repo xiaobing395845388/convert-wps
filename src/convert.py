@@ -10,6 +10,7 @@
 import os
 import sys
 import uuid
+import subprocess
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
@@ -68,8 +69,9 @@ Details: {}
 ErrCode: {}
 """.format(self.text, hex(self.hr & 0xFFFFFFFF))
 
-def init():
-    os.system("./clean.sh")
+def init(re_init):
+    if re_init:
+        subprocess.call("ps -ef|grep wps |awk '{print $2}'|xargs kill -9", shell = True)
     hr, rpc = createWpsRpcInstance()
     if hr != S_OK:
         raise ConvertException("Can't create the rpc instance", hr)
@@ -79,7 +81,7 @@ def init():
     wps.Visible = False
     return wps.Documents
     
-docs = init()
+docs = init(False)
 
 @app.get("/")
 async def test(request: Request):
@@ -101,7 +103,7 @@ async def convert(
     try:
         hr, doc = docs.Open(path, ReadOnly=True)
         if hr != S_OK:
-            docs = init()
+            docs = init(True)
             hr, doc = docs.Open(path, ReadOnly=True)
             if hr != S_OK:
                 raise ConvertException("Can't open file in path", hr)
