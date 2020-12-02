@@ -33,19 +33,19 @@ formats = {
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+base_path = "/headless/temp_file" 
 
 def worker():
-    path = "temp_file/out"
+    path = base_path + "/out"
     if os.path.exists(path):
         for f in os.listdir(path):
             try:
                 os.remove(path + "/" + f)
             except IOError:
                 print("Error: 没有找到文件或读取文件失败" + path + "/" + f)
-    path = "temp_file"
-    if os.path.exists(path):
-        for f in os.listdir(path):
-            file_path = path + "/" + f
+    if os.path.exists(base_path):
+        for f in os.listdir(base_path):
+            file_path = base_path + "/" + f
             if os.path.isfile(file_path):
                 try:
                     os.remove(file_path)
@@ -93,7 +93,6 @@ async def convert(
                         file: UploadFile   = File(...)
                       ):
     file_name = str(uuid.uuid1())   
-    base_path = "temp_file" 
     path = os.path.join(base_path ,file_name)
     os.makedirs(base_path, exist_ok=True)
     contents = await file.read()
