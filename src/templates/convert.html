@@ -1,0 +1,11 @@
+<body>
+    <form action="/api/v1/convert" enctype="multipart/form-data" method="post">
+        <input name="file" type="file" multiple><br><br>
+        目标文件类型：
+                <select name = "fileType">
+                  <option value="html">html</option>
+                  <option value="pdf">pdf</option>
+                </select><br><br>
+        <input type="submit" value="点击这里">
+    </form>
+</body>

@@ -83,19 +83,10 @@ def init(re_init):
     
 docs = init(False)
 
-@app.get("/")
-async def test(request: Request):
-    return templates.TemplateResponse('post.html', {'request': request})
-
-@app.post('/api/v1/convert/wps/pdf')
-async def convert(
-                        request: Request,
-                        file: UploadFile   = File(...)
-                      ):
-    file_name = str(uuid.uuid1())   
+def doConvert(contents, fileType):
+    file_name = str(uuid.uuid1())
     path = os.path.join(base_path ,file_name)
     os.makedirs(base_path, exist_ok=True)
-    contents = await file.read()
     with open(path,'wb') as f:
         f.write(contents)
     global docs
@@ -108,10 +99,36 @@ async def convert(
                 raise ConvertException("Can't open file in path", hr)
         out_dir = base_path + "/out"
         os.makedirs(out_dir, exist_ok=True)
-        new_path = out_dir + "/" + file_name  + ".pdf"
-        doc.SaveAs2(new_path, FileFormat=formats["pdf"])
+        new_path = out_dir + "/" + file_name  + "." + fileType
+        doc.SaveAs2(new_path, FileFormat=formats[fileType])
         doc.Close(wpsapi.wdDoNotSaveChanges)   
-        return  FileResponse(new_path, filename = file_name  + ".pdf")
+        return  FileResponse(new_path, filename = file_name  + "." + fileType)
     except ConvertException as e:
         print(e)
         return JSONResponse(status_code=500, content = str(e))
+
+
+@app.get("/")
+async def test(request: Request):
+    return templates.TemplateResponse('post.html', {'request': request})
+
+@app.post('/api/v1/convert/wps/pdf')
+async def convert(
+                        request: Request,
+                        file: UploadFile   = File(...)
+                      ):
+    contents = await file.read()
+    return doConvert(contents, "pdf")
+
+@app.get("/convert")
+async def test(request: Request):
+    return templates.TemplateResponse('convert.html', {'request': request})
+
+@app.post('/api/v1/convert')
+async def convert(
+                        request: Request,
+                        fileType: str = Form(...),
+                        file: UploadFile   = File(...)
+                      ):
+    contents = await file.read()
+    return doConvert(contents, fileType)
