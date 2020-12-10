@@ -93,33 +93,30 @@ async def convert(
                         request: Request,
                         file: UploadFile   = File(...)
                       ):
-    
     if fileType in formats:
+        file_name = str(uuid.uuid1())
+        path = os.path.join(base_path ,file_name)
+        os.makedirs(base_path, exist_ok=True)
         contents = await file.read()
-        return doConvert(contents, fileType)
-    else:
-        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
-
-def doConvert(contents, fileType):
-    file_name = str(uuid.uuid1())
-    path = os.path.join(base_path ,file_name)
-    os.makedirs(base_path, exist_ok=True)
-    with open(path,'wb') as f:
-        f.write(contents)
-    global docs
-    try:
-        hr, doc = docs.Open(path, ReadOnly=True)
-        if hr != S_OK:
-            docs = init(True)
+        with open(path,'wb') as f:
+            f.write(contents)
+        global docs
+        try:
             hr, doc = docs.Open(path, ReadOnly=True)
             if hr != S_OK:
-                raise ConvertException("Can't open file in path", hr)
-        out_dir = base_path + "/out"
-        os.makedirs(out_dir, exist_ok=True)
-        new_path = out_dir + "/" + file_name  + "." + fileType
-        doc.SaveAs2(new_path, FileFormat=formats[fileType])
-        doc.Close(wpsapi.wdDoNotSaveChanges)   
-        return  FileResponse(new_path, filename = file_name  + "." + fileType)
-    except ConvertException as e:
-        print(e)
-        return JSONResponse(status_code=500, content = str(e))
+                docs = init(True)
+                hr, doc = docs.Open(path, ReadOnly=True)
+                if hr != S_OK:
+                    raise ConvertException("Can't open file in path", hr)
+            out_dir = base_path + "/out"
+            os.makedirs(out_dir, exist_ok=True)
+            new_path = out_dir + "/" + file_name  + "." + fileType
+            doc.SaveAs2(new_path, FileFormat=formats[fileType])
+            doc.Close(wpsapi.wdDoNotSaveChanges)   
+            return  FileResponse(new_path, filename = file_name  + "." + fileType)
+        except ConvertException as e:
+            print(e)
+            return JSONResponse(status_code=500, content = str(e))
+            return doConvert(contents, fileType)
+    else:
+        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
