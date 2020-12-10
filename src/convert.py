@@ -88,11 +88,7 @@ async def test(request: Request):
     return templates.TemplateResponse('post.html', {'request': request})
 
 @app.post('/api/v1/convert/wps/{fileType}')
-async def convert(
-                        fileType: str,
-                        request: Request,
-                        file: UploadFile   = File(...)
-                      ):
+async def convert(fileType: str, request: Request, file: UploadFile = File(...)):
     if fileType in formats:
         file_name = str(uuid.uuid1())
         path = os.path.join(base_path ,file_name)
