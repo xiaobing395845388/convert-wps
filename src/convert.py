@@ -16,7 +16,7 @@ from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
 
 from starlette.requests import Request
-from fastapi import FastAPI, Form, File, UploadFile
+from fastapi import FastAPI, Form, File, UploadFile, Path
 from fastapi.responses import JSONResponse
 from starlette.templating import Jinja2Templates
 from starlette.responses import FileResponse
@@ -83,35 +83,32 @@ def init(re_init):
     
 docs = init(False)
 
-@app.get("/")
-async def test(request: Request):
-    return templates.TemplateResponse('post.html', {'request': request})
-
-@app.post('/api/v1/convert/wps/pdf')
-async def convert(
-                        request: Request,
-                        file: UploadFile   = File(...)
-                      ):
-    file_name = str(uuid.uuid1())   
-    path = os.path.join(base_path ,file_name)
-    os.makedirs(base_path, exist_ok=True)
-    contents = await file.read()
-    with open(path,'wb') as f:
-        f.write(contents)
-    global docs
-    try:
-        hr, doc = docs.Open(path, ReadOnly=True)
-        if hr != S_OK:
-            docs = init(True)
+@app.post('/api/v1/convert/wps/{fileType}')
+async def convert(request: Request, file: UploadFile = File(...), fileType: str = Path(..., description="目标文件类型,支持：doc、docx、rtf、html、pdf、xml")):
+    if fileType in formats:
+        file_name = str(uuid.uuid1())
+        path = os.path.join(base_path ,file_name)
+        os.makedirs(base_path, exist_ok=True)
+        contents = await file.read()
+        with open(path,'wb') as f:
+            f.write(contents)
+        global docs
+        try:
             hr, doc = docs.Open(path, ReadOnly=True)
             if hr != S_OK:
-                raise ConvertException("Can't open file in path", hr)
-        out_dir = base_path + "/out"
-        os.makedirs(out_dir, exist_ok=True)
-        new_path = out_dir + "/" + file_name  + ".pdf"
-        doc.SaveAs2(new_path, FileFormat=formats["pdf"])
-        doc.Close(wpsapi.wdDoNotSaveChanges)   
-        return  FileResponse(new_path, filename = file_name  + ".pdf")
-    except ConvertException as e:
-        print(e)
-        return JSONResponse(status_code=500, content = str(e))
+                docs = init(True)
+                hr, doc = docs.Open(path, ReadOnly=True)
+                if hr != S_OK:
+                    raise ConvertException("Can't open file in path", hr)
+            out_dir = base_path + "/out"
+            os.makedirs(out_dir, exist_ok=True)
+            new_path = out_dir + "/" + file_name  + "." + fileType
+            doc.SaveAs2(new_path, FileFormat=formats[fileType])
+            doc.Close(wpsapi.wdDoNotSaveChanges)   
+            return  FileResponse(new_path, filename = file_name  + "." + fileType)
+        except ConvertException as e:
+            print(e)
+            return JSONResponse(status_code=500, content = str(e))
+            return doConvert(contents, fileType)
+    else:
+        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
