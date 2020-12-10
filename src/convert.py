@@ -83,6 +83,23 @@ def init(re_init):
     
 docs = init(False)
 
+@app.get("/")
+async def test(request: Request):
+    return templates.TemplateResponse('post.html', {'request': request})
+
+@app.post('/api/v1/convert/wps/{fileType}')
+async def convert(
+                        fileType: str,
+                        request: Request,
+                        file: UploadFile   = File(...)
+                      ):
+    
+    if fileType in formats:
+        contents = await file.read()
+        return doConvert(contents, fileType)
+    else:
+        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
+
 def doConvert(contents, fileType):
     file_name = str(uuid.uuid1())
     path = os.path.join(base_path ,file_name)
@@ -106,29 +123,3 @@ def doConvert(contents, fileType):
     except ConvertException as e:
         print(e)
         return JSONResponse(status_code=500, content = str(e))
-
-
-@app.get("/")
-async def test(request: Request):
-    return templates.TemplateResponse('post.html', {'request': request})
-
-@app.post('/api/v1/convert/wps/pdf')
-async def convert(
-                        request: Request,
-                        file: UploadFile   = File(...)
-                      ):
-    contents = await file.read()
-    return doConvert(contents, "pdf")
-
-@app.get("/convert")
-async def test(request: Request):
-    return templates.TemplateResponse('convert.html', {'request': request})
-
-@app.post('/api/v1/convert')
-async def convert(
-                        request: Request,
-                        fileType: str = Form(...),
-                        file: UploadFile   = File(...)
-                      ):
-    contents = await file.read()
-    return doConvert(contents, fileType)
