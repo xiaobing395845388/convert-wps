@@ -16,7 +16,7 @@ from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
 
 from starlette.requests import Request
-from fastapi import FastAPI, Form, File, UploadFile
+from fastapi import FastAPI, Form, File, UploadFile, Path
 from fastapi.responses import JSONResponse
 from starlette.templating import Jinja2Templates
 from starlette.responses import FileResponse
@@ -83,12 +83,8 @@ def init(re_init):
     
 docs = init(False)
 
-@app.get("/")
-async def test(request: Request):
-    return templates.TemplateResponse('post.html', {'request': request})
-
 @app.post('/api/v1/convert/wps/{fileType}')
-async def convert(fileType: str, request: Request, file: UploadFile = File(...)):
+async def convert(request: Request, file: UploadFile = File(...), fileType: str = Path(..., description="目标文件类型,支持：doc、docx、rtf、html、pdf、xml")):
     if fileType in formats:
         file_name = str(uuid.uuid1())
         path = os.path.join(base_path ,file_name)
