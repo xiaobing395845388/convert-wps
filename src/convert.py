@@ -109,6 +109,5 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
         except ConvertException as e:
             print(e)
             return JSONResponse(status_code=500, content = str(e))
-            return doConvert(contents, fileType)
     else:
         return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
