@@ -21,5 +21,5 @@ pip3 install uvicorn
 python3 convert.py & uvicorn server:app --host 0.0.0.0 --port 5678  --workers 8
 ```
 ## docker
-docker run -it  -p 5678:5678  registry.thunisoft.com:5000/thunisoft/onlinepaper:1.1
+docker run -it  -p 5678:5678  registry.xxx.com:5000/xxx/onlinepaper:2.7
 
