@@ -10,7 +10,6 @@
 import os
 import sys
 import uuid
-import subprocess
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
@@ -20,7 +19,6 @@ from fastapi import FastAPI, Form, File, UploadFile, Path
 from fastapi.responses import JSONResponse
 from starlette.templating import Jinja2Templates
 from starlette.responses import FileResponse
-from apscheduler.schedulers.background import BackgroundScheduler
 
 formats = {
     "doc": wpsapi.wdFormatDocument,
@@ -34,28 +32,6 @@ formats = {
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 base_path = "/headless/temp_file" 
-
-def worker():
-    path = base_path + "/out"
-    if os.path.exists(path):
-        for f in os.listdir(path):
-            try:
-                os.remove(path + "/" + f)
-            except IOError:
-                print("Error: 没有找到文件或读取文件失败" + path + "/" + f)
-    if os.path.exists(base_path):
-        for f in os.listdir(base_path):
-            file_path = base_path + "/" + f
-            if os.path.isfile(file_path):
-                try:
-                    os.remove(file_path)
-                except IOError:
-                    print("Error: 没有找到文件或读取文件失败" + file_path)
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 0,minute = 0)
-scheduler.add_job(worker,'cron',day_of_week ='0-6',hour = 13,minute = 13)
-scheduler.start() 
 
 class ConvertException(Exception):
 
