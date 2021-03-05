@@ -20,7 +20,7 @@ RUN cd /home \
  && rpm -ivh /home/wps-office-11.1.0.9662-1.x86_64.rpm \
  && tar zxvf gcc-4.9.3.tar.gz \
 #&& cd gcc-4.9.3/ \ 
-#&& ./contrib/download_prerequisites \
+#&& ./contrib/download_prerequisschedule.pyites \
 #&& cd ../ \
  && mkdir build-gcc \
  && cd build-gcc \
@@ -37,4 +37,4 @@ RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/code.tar.gz \
  && rm -rf  Kingsoft.tar.gz
 ENV TZ=Asia/Shanghai
 ENV VNC_PW=6789@jkl
-CMD python3 convert.py & uvicorn server:app --host 0.0.0.0 --port 5678  --workers 16 --log-level error
+CMD python3 schedule.py & 
