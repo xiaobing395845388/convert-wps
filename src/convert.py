@@ -11,6 +11,7 @@ import os
 import sys
 import uuid
 
+import subprocess
 import logging
 import time
 
@@ -128,7 +129,7 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
         except Exception as e:
             logger.error("文件转换异常:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
-        finally:
+        else:
             endReturnTime = time.time()
             returnTime = endReturnTime - startReturnTime
             logger.info("文件返回客户端耗时：%s" % returnTime)
