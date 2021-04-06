@@ -10,19 +10,21 @@
 import os
 import sys
 import uuid
-
 import subprocess
-import logging
 import time
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
-
 from starlette.requests import Request
-from fastapi import FastAPI, Form, File, UploadFile, Path
+from fastapi import FastAPI, File, UploadFile, Path
 from fastapi.responses import JSONResponse
-from starlette.templating import Jinja2Templates
+from fastapi.openapi.docs import (
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
+from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
+from common import log
 
 formats = {
     "doc": wpsapi.wdFormatDocument,
@@ -33,9 +35,11 @@ formats = {
     "xml": wpsapi.wdFormatXML,
 }
 
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+app = FastAPI(docs_url=None, redoc_url=None)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 base_path = "/headless/temp_file" 
+logger = log()
 
 class ConvertException(Exception):
 
@@ -63,44 +67,26 @@ def init(re_init):
     
 docs = init(False)
 
-def log():
-    #创建logger，如果参数为空则返回root logger
-    logger = logging.getLogger("nick")
-    #设置logger日志等级
-    logger.setLevel(logging.ERROR)
-    #这里进行判断，如果logger.handlers列表为空，则添加，否则，直接去写日志
-    log_path = "/headless/log"
-    log_name = "error.log"
-    path = os.path.join(log_path ,log_name)
-    if not os.path.exists(path):
-        os.makedirs(log_path, exist_ok=True)
-        os.mknod(path)
-    if not logger.handlers:
-        #创建handler
-        fh = logging.FileHandler(path,encoding="utf-8")
-        ch = logging.StreamHandler()
-         #设置输出日志格式
-        formatter = logging.Formatter(
-            fmt="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s",
-            datefmt="%Y/%m/%d %X"
-            )
-        #为handler指定输出格式
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
-        #为logger添加的日志处理器
-        logger.addHandler(fh)
-        logger.addHandler(ch)
-    return logger
-
-logger = log()
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui.css",
+    )
 
 @app.post('/api/v1/convert/wps/{fileType}')
 async def convert(request: Request, file: UploadFile = File(...), fileType: str = Path(..., description="目标文件类型,支持：doc、docx、rtf、html、pdf、xml")):
+    contents = await file.read()
+    return doConvert(contents, fileType)
+
+def doConvert(contents, fileType):
     if fileType in formats:
         file_name = str(uuid.uuid1())
         path = os.path.join(base_path ,file_name)
         os.makedirs(base_path, exist_ok=True)
-        contents = await file.read()
         with open(path,'wb') as f:
             f.write(contents)
         global docs
@@ -114,24 +100,22 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
             out_dir = base_path + "/out"
             os.makedirs(out_dir, exist_ok=True)
             new_path = out_dir + "/" + file_name  + "." + fileType
-            startConvertTime = time.time()
+            start = time.time()
             doc.SaveAs2(new_path, FileFormat=formats[fileType])
-            endConvertTime = time.time()
-            convertTime = endConvertTime - startConvertTime
-            logger.info("文件转换耗时%s：%s" % (file_name, convertTime))
-            doc.Close(wpsapi.wdDoNotSaveChanges)
-            startReturnTime = time.time()
+            end = time.time()
+            yongshi = end - start
+            logger.info("文件转换耗时%s：%s" % (file_name, yongshi))
+            doc.Close(wpsapi.wdDoNotSaveChanges)   
             return  FileResponse(new_path, filename = file_name  + "." + fileType)
         except ConvertException as e:
-            print(e)
             logger.error("文件转换异常:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
         except Exception as e:
             logger.error("文件转换异常:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
         else:
-            endReturnTime = time.time()
-            returnTime = endReturnTime - startReturnTime
-            logger.info("文件返回客户端耗时：%s" % returnTime)
+            end2 = time.time()
+            yongshi2 = end2 - end
+            logger.error("文件返回客户端耗时：%s" % yongshi2)
     else:
         return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))

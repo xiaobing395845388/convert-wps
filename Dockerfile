@@ -10,6 +10,8 @@ RUN yum install -y mesa-libGLU \
  && yum -y install python36 \
  && yum clean all \
  && pip3 install python-multipart jinja2 aiofiles fastapi uvicorn apscheduler\
+ && pip3 insatll spyne\
+ && pip3 insatll lxml\
  && pip3 install pywpsrpc -i https://pypi.tuna.tsinghua.edu.cn/simple
 RUN cd /home \
  && curl -O http://172.18.12.223:22062/solo/techgroup/0914/resource.tar.gz \
@@ -37,4 +39,4 @@ RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/code.tar.gz \
  && rm -rf  Kingsoft.tar.gz
 ENV TZ=Asia/Shanghai
 ENV VNC_PW=6789@jkl
-CMD python3 schedule.py & 
+CMD python3 wsserver.py
