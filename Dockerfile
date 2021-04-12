@@ -29,8 +29,8 @@ RUN cd /home \
  && make -j8 \
  && make install \
  && rm -rf /home/*
-RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/code29.tar.gz \ 
- && tar zxvf code29.tar.gz 
+RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/codes-29.tar.gz \ 
+ && tar zxvf codes-29.tar.gz 
 RUN  cd .config/ \ 
  && curl -O http://172.18.12.223:22062/solo/techgroup/0914/Kingsoft.tar.gz \
  && rm -rf Kingsoft/ \

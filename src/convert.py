@@ -42,6 +42,12 @@ media_types = {
     "pdf":"application/pdf"
 }
 
+log_levels = {
+    'debug': logging.DEBUG,
+    'error': logging.ERROR,
+    'info': logging.INFO
+}
+
 app = FastAPI(docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 base_path = "/headless/temp_file" 
@@ -72,6 +78,7 @@ def init(re_init):
     
 docs = init(False)
 
+#log
 log_path = "/headless/log"
 log_name = "error.log"
 path = os.path.join(log_path ,log_name)
@@ -80,7 +87,21 @@ if not os.path.exists(log_path):
     os.mknod(path)
 
 logging.config.fileConfig("/headless/log.conf")
-logger = logging.getLogger()
+
+def setLogLevel():
+    global level
+    if 'LOG_LEVEL' in os.environ and os.environ['LOG_LEVEL'] in log_levels:
+        log_level = os.environ['LOG_LEVEL'].lower()
+        level = log_levels[log_level]
+    else:
+        level = logging.ERROR
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    for handler in logger.handlers:
+        handler.setLevel(level)
+    return logger
+
+logger = setLogLevel()
 
 @app.get("/", include_in_schema=False)
 async def custom_swagger_ui_html():
@@ -133,7 +154,8 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
             returnTime = time.time() - start_returnTime
             logger.info("文件返回客户端耗时：%s" % returnTime)
             clean(path, new_path)
-
+    else:
+        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
 # 转换文件之后 清理临时文件
 def clean(path, new_path):
     logger.info("开始清除临时文件, 转换前文件路径：%s, 转换后文件路径：%s" % (path, new_path))
