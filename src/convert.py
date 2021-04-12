@@ -10,21 +10,23 @@
 import os
 import sys
 import uuid
+
 import subprocess
+import logging, logging.config
 import time
 
 from pywpsrpc.rpcwpsapi import (createWpsRpcInstance, wpsapi)
 from pywpsrpc.common import (S_OK, QtApp)
+
 from starlette.requests import Request
-from fastapi import FastAPI, File, UploadFile, Path
+from fastapi import FastAPI, Form, File, UploadFile, Path
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
-from common import log
+from starlette.responses import FileResponse, StreamingResponse
 
 formats = {
     "doc": wpsapi.wdFormatDocument,
@@ -35,11 +37,14 @@ formats = {
     "xml": wpsapi.wdFormatXML,
 }
 
+media_types = {
+    "html": "text/html",
+    "pdf":"application/pdf"
+}
+
 app = FastAPI(docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 base_path = "/headless/temp_file" 
-logger = log()
 
 class ConvertException(Exception):
 
@@ -67,7 +72,17 @@ def init(re_init):
     
 docs = init(False)
 
-@app.get("/docs", include_in_schema=False)
+log_path = "/headless/log"
+log_name = "error.log"
+path = os.path.join(log_path ,log_name)
+if not os.path.exists(log_path):
+    os.makedirs(log_path, exist_ok=True)
+    os.mknod(path)
+
+logging.config.fileConfig("/headless/log.conf")
+logger = logging.getLogger()
+
+@app.get("/", include_in_schema=False)
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
@@ -79,17 +94,16 @@ async def custom_swagger_ui_html():
 
 @app.post('/api/v1/convert/wps/{fileType}')
 async def convert(request: Request, file: UploadFile = File(...), fileType: str = Path(..., description="目标文件类型,支持：doc、docx、rtf、html、pdf、xml")):
-    contents = await file.read()
-    return doConvert(contents, fileType)
-
-def doConvert(contents, fileType):
     if fileType in formats:
         file_name = str(uuid.uuid1())
         path = os.path.join(base_path ,file_name)
         os.makedirs(base_path, exist_ok=True)
+        contents = await file.read()
         with open(path,'wb') as f:
             f.write(contents)
         global docs
+        global new_path
+        global start_returnTime
         try:
             hr, doc = docs.Open(path, ReadOnly=True)
             if hr != S_OK:
@@ -100,22 +114,38 @@ def doConvert(contents, fileType):
             out_dir = base_path + "/out"
             os.makedirs(out_dir, exist_ok=True)
             new_path = out_dir + "/" + file_name  + "." + fileType
-            start = time.time()
+            start_convertTime = time.time()
             doc.SaveAs2(new_path, FileFormat=formats[fileType])
-            end = time.time()
-            yongshi = end - start
-            logger.info("文件转换耗时%s：%s" % (file_name, yongshi))
-            doc.Close(wpsapi.wdDoNotSaveChanges)   
-            return  FileResponse(new_path, filename = file_name  + "." + fileType)
+            convertTime = time.time() - start_convertTime
+            logger.info("文件转换耗时%s：%s" % (file_name, convertTime))
+            doc.Close(wpsapi.wdDoNotSaveChanges)
+            start_returnTime = time.time()
+            return StreamingResponse(open(new_path,'rb'), media_type= media_types[fileType])
         except ConvertException as e:
+            print("文件转换异常:" + str(e))
             logger.error("文件转换异常:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
         except Exception as e:
+            print("文件转换异常:" + str(e))
             logger.error("文件转换异常:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
-        else:
-            end2 = time.time()
-            yongshi2 = end2 - end
-            logger.error("文件返回客户端耗时：%s" % yongshi2)
-    else:
-        return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
+        finally:
+            returnTime = time.time() - start_returnTime
+            logger.info("文件返回客户端耗时：%s" % returnTime)
+            clean(path, new_path)
+
+# 转换文件之后 清理临时文件
+def clean(path, new_path):
+    logger.info("开始清除临时文件, 转换前文件路径：%s, 转换后文件路径：%s" % (path, new_path))
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except IOError:
+            print("Error: 删除文件没有找到文件失败 %s" % path)
+            logger.error("Error: 没有找到文件或读取文件失败 %s " % path)
+    if os.path.exists(new_path):
+        try:
+            os.remove(new_path)
+        except IOError:
+            print("Error: 删除文件没有找到文件失败 %s" % new_path)
+            logger.error("Error: 没有找到文件或读取文件失败 %s " % new_path)
