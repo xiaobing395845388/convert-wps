@@ -12,15 +12,16 @@ RUN yum install -y mesa-libGLU \
  && pip3 install python-multipart jinja2 aiofiles fastapi uvicorn apscheduler\
  && pip3 install pywpsrpc -i https://pypi.tuna.tsinghua.edu.cn/simple
 RUN cd /home \
- && curl -O http://172.18.12.223:22062/solo/techgroup/0914/resource.tar.gz \
- && tar zxvf resource.tar.gz \ 
- && tar zxvf fonts.tar.gz \
+ && localedef -c -f UTF-8 -i zh_CN zh_CN.utf8 \
+ && curl -O http://172.18.12.223:22062/solo/techgroup/0914/resource-x86.tar.gz \
+ && tar zxvf resource-x86.tar.gz \ 
+ && tar zxvf fonts-cn.tar.gz \
  && rm -rf /usr/share/fonts/* \
  && mv fonts/* /usr/share/fonts \
  && rpm -ivh /home/wps-office-11.1.0.9662-1.x86_64.rpm \
  && tar zxvf gcc-4.9.3.tar.gz \
 #&& cd gcc-4.9.3/ \ 
-#&& ./contrib/download_prerequisschedule.pyites \
+#&& ./contrib/download_prerequisites \
 #&& cd ../ \
  && mkdir build-gcc \
  && cd build-gcc \
@@ -28,13 +29,14 @@ RUN cd /home \
  && make -j8 \
  && make install \
  && rm -rf /home/*
-RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/code.tar.gz \ 
- && tar zxvf code.tar.gz \
- && cd .config/ \
+RUN curl -O http://172.18.12.223:22062/solo/techgroup/0914/codes-29.tar.gz \ 
+ && tar zxvf codes-29.tar.gz 
+RUN  cd .config/ \ 
  && curl -O http://172.18.12.223:22062/solo/techgroup/0914/Kingsoft.tar.gz \
  && rm -rf Kingsoft/ \
  && tar zxvf Kingsoft.tar.gz \
  && rm -rf  Kingsoft.tar.gz
 ENV TZ=Asia/Shanghai
 ENV VNC_PW=6789@jkl
-CMD python3 schedule.py & 
+EXPOSE 5678
+CMD uvicorn convert:app --host 0.0.0.0 --port 5678 --log-level error
