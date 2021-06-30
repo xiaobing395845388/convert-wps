@@ -2,7 +2,7 @@
 # * Description: convert<br>
 # * Copyright: Copyright (c) 2019<br>
 # * Company: 华宇（大连）信息服务有限公司<br>
-# * 
+# *
 # * @author wangbing
 # * @date 2020-10-10
 # * @version 1.0
@@ -50,7 +50,7 @@ log_levels = {
 
 app = FastAPI(docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-base_path = "/headless/temp_file" 
+base_path = "/headless/temp_file"
 
 class ConvertException(Exception):
 
@@ -75,7 +75,7 @@ def init(re_init):
         raise ConvertException("Can't get the application", hr)
     wps.Visible = False
     return wps.Documents
-    
+
 docs = init(False)
 
 #log
@@ -126,10 +126,10 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
         global new_path
         global start_returnTime
         try:
-            hr, doc = docs.Open(path, ReadOnly=True)
+            hr, doc = docs.Open(path, PasswordDocument="xxx", ReadOnly=True)
             if hr != S_OK:
                 docs = init(True)
-                hr, doc = docs.Open(path, ReadOnly=True)
+                hr, doc = docs.Open(path, PasswordDocument="xxx", ReadOnly=True)
                 if hr != S_OK:
                     raise ConvertException("Can't open file in path", hr)
             out_dir = base_path + "/out"
@@ -141,14 +141,12 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
             logger.info("文件转换耗时%s：%s" % (file_name, convertTime))
             doc.Close(wpsapi.wdDoNotSaveChanges)
             start_returnTime = time.time()
-            return StreamingResponse(open(new_path,'rb'), media_type= media_types[fileType])
-        except ConvertException as e:
-            print("文件转换异常:" + str(e))
-            logger.error("文件转换异常:" + str(e))
-            return JSONResponse(status_code=500, content = str(e))
+            new_file = open(new_path,'rb')
+            openTime = time.time() - start_returnTime
+            logger.info("打开文件耗时%s" % openTime)
+            return StreamingResponse(new_file, media_type= media_types[fileType])
         except Exception as e:
-            print("文件转换异常:" + str(e))
-            logger.error("文件转换异常:" + str(e))
+            logger.error("文件名称:" + file.filename + "转换失败，异常信息:" + str(e))
             return JSONResponse(status_code=500, content = str(e))
         finally:
             returnTime = time.time() - start_returnTime
@@ -156,6 +154,7 @@ async def convert(request: Request, file: UploadFile = File(...), fileType: str 
             clean(path, new_path)
     else:
         return JSONResponse(status_code=500, content = str("格式类型转换暂不支持：" + fileType))
+
 # 转换文件之后 清理临时文件
 def clean(path, new_path):
     logger.info("开始清除临时文件, 转换前文件路径：%s, 转换后文件路径：%s" % (path, new_path))
@@ -163,11 +162,9 @@ def clean(path, new_path):
         try:
             os.remove(path)
         except IOError:
-            print("Error: 删除文件没有找到文件失败 %s" % path)
             logger.error("Error: 没有找到文件或读取文件失败 %s " % path)
     if os.path.exists(new_path):
         try:
             os.remove(new_path)
         except IOError:
-            print("Error: 删除文件没有找到文件失败 %s" % new_path)
             logger.error("Error: 没有找到文件或读取文件失败 %s " % new_path)
