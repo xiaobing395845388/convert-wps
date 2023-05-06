@@ -1,4 +1,4 @@
-FROM registry.thunisoft.com:5000/thunisoft/centos-xfce-vnc:1.0
+FROM centos-xfce-vnc:1.0
 USER 0
 RUN yum install -y mesa-libGLU \
  && yum -y install libqt* \ 
